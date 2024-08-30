@@ -11,18 +11,19 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/elnatal/go-experiment/ent/todo"
 	"github.com/elnatal/go-experiment/ent/user"
-	"github.com/google/uuid"
 )
 
 // Todo is the model entity for the Todo schema.
 type Todo struct {
 	config `json:"-"`
 	// ID of the ent.
-	ID uuid.UUID `json:"id,omitempty"`
+	ID int `json:"id,omitempty"`
 	// Title holds the value of the "title" field.
 	Title string `json:"title,omitempty"`
 	// Description holds the value of the "description" field.
 	Description string `json:"description,omitempty"`
+	// Completed holds the value of the "completed" field.
+	Completed bool `json:"completed,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// UpdatedAt holds the value of the "updated_at" field.
@@ -30,7 +31,7 @@ type Todo struct {
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the TodoQuery when eager-loading is set.
 	Edges        TodoEdges `json:"edges"`
-	user_todos   *uuid.UUID
+	user_todos   *int
 	selectValues sql.SelectValues
 }
 
@@ -59,14 +60,16 @@ func (*Todo) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case todo.FieldCompleted:
+			values[i] = new(sql.NullBool)
+		case todo.FieldID:
+			values[i] = new(sql.NullInt64)
 		case todo.FieldTitle, todo.FieldDescription:
 			values[i] = new(sql.NullString)
 		case todo.FieldCreatedAt, todo.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
-		case todo.FieldID:
-			values[i] = new(uuid.UUID)
 		case todo.ForeignKeys[0]: // user_todos
-			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
+			values[i] = new(sql.NullInt64)
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -83,11 +86,11 @@ func (t *Todo) assignValues(columns []string, values []any) error {
 	for i := range columns {
 		switch columns[i] {
 		case todo.FieldID:
-			if value, ok := values[i].(*uuid.UUID); !ok {
-				return fmt.Errorf("unexpected type %T for field id", values[i])
-			} else if value != nil {
-				t.ID = *value
+			value, ok := values[i].(*sql.NullInt64)
+			if !ok {
+				return fmt.Errorf("unexpected type %T for field id", value)
 			}
+			t.ID = int(value.Int64)
 		case todo.FieldTitle:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field title", values[i])
@@ -99,6 +102,12 @@ func (t *Todo) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field description", values[i])
 			} else if value.Valid {
 				t.Description = value.String
+			}
+		case todo.FieldCompleted:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field completed", values[i])
+			} else if value.Valid {
+				t.Completed = value.Bool
 			}
 		case todo.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -113,11 +122,11 @@ func (t *Todo) assignValues(columns []string, values []any) error {
 				t.UpdatedAt = value.Time
 			}
 		case todo.ForeignKeys[0]:
-			if value, ok := values[i].(*sql.NullScanner); !ok {
-				return fmt.Errorf("unexpected type %T for field user_todos", values[i])
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for edge-field user_todos", value)
 			} else if value.Valid {
-				t.user_todos = new(uuid.UUID)
-				*t.user_todos = *value.S.(*uuid.UUID)
+				t.user_todos = new(int)
+				*t.user_todos = int(value.Int64)
 			}
 		default:
 			t.selectValues.Set(columns[i], values[i])
@@ -165,6 +174,9 @@ func (t *Todo) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("description=")
 	builder.WriteString(t.Description)
+	builder.WriteString(", ")
+	builder.WriteString("completed=")
+	builder.WriteString(fmt.Sprintf("%v", t.Completed))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(t.CreatedAt.Format(time.ANSIC))

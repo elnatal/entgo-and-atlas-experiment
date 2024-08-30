@@ -18,6 +18,8 @@ const (
 	FieldTitle = "title"
 	// FieldDescription holds the string denoting the description field in the database.
 	FieldDescription = "description"
+	// FieldCompleted holds the string denoting the completed field in the database.
+	FieldCompleted = "completed"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
@@ -40,6 +42,7 @@ var Columns = []string{
 	FieldID,
 	FieldTitle,
 	FieldDescription,
+	FieldCompleted,
 	FieldCreatedAt,
 	FieldUpdatedAt,
 }
@@ -66,6 +69,8 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// DefaultCompleted holds the default value on creation for the "completed" field.
+	DefaultCompleted bool
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
@@ -88,6 +93,11 @@ func ByTitle(opts ...sql.OrderTermOption) OrderOption {
 // ByDescription orders the results by the description field.
 func ByDescription(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldDescription, opts...).ToFunc()
+}
+
+// ByCompleted orders the results by the completed field.
+func ByCompleted(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCompleted, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

@@ -12,7 +12,6 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/elnatal/go-experiment/ent/todo"
 	"github.com/elnatal/go-experiment/ent/user"
-	"github.com/google/uuid"
 )
 
 // TodoCreate is the builder for creating a Todo entity.
@@ -31,6 +30,20 @@ func (tc *TodoCreate) SetTitle(s string) *TodoCreate {
 // SetDescription sets the "description" field.
 func (tc *TodoCreate) SetDescription(s string) *TodoCreate {
 	tc.mutation.SetDescription(s)
+	return tc
+}
+
+// SetCompleted sets the "completed" field.
+func (tc *TodoCreate) SetCompleted(b bool) *TodoCreate {
+	tc.mutation.SetCompleted(b)
+	return tc
+}
+
+// SetNillableCompleted sets the "completed" field if the given value is not nil.
+func (tc *TodoCreate) SetNillableCompleted(b *bool) *TodoCreate {
+	if b != nil {
+		tc.SetCompleted(*b)
+	}
 	return tc
 }
 
@@ -62,14 +75,8 @@ func (tc *TodoCreate) SetNillableUpdatedAt(t *time.Time) *TodoCreate {
 	return tc
 }
 
-// SetID sets the "id" field.
-func (tc *TodoCreate) SetID(u uuid.UUID) *TodoCreate {
-	tc.mutation.SetID(u)
-	return tc
-}
-
 // SetAuthorID sets the "author" edge to the User entity by ID.
-func (tc *TodoCreate) SetAuthorID(id uuid.UUID) *TodoCreate {
+func (tc *TodoCreate) SetAuthorID(id int) *TodoCreate {
 	tc.mutation.SetAuthorID(id)
 	return tc
 }
@@ -114,6 +121,10 @@ func (tc *TodoCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (tc *TodoCreate) defaults() {
+	if _, ok := tc.mutation.Completed(); !ok {
+		v := todo.DefaultCompleted
+		tc.mutation.SetCompleted(v)
+	}
 	if _, ok := tc.mutation.CreatedAt(); !ok {
 		v := todo.DefaultCreatedAt()
 		tc.mutation.SetCreatedAt(v)
@@ -131,6 +142,9 @@ func (tc *TodoCreate) check() error {
 	}
 	if _, ok := tc.mutation.Description(); !ok {
 		return &ValidationError{Name: "description", err: errors.New(`ent: missing required field "Todo.description"`)}
+	}
+	if _, ok := tc.mutation.Completed(); !ok {
+		return &ValidationError{Name: "completed", err: errors.New(`ent: missing required field "Todo.completed"`)}
 	}
 	if _, ok := tc.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "Todo.created_at"`)}
@@ -155,13 +169,8 @@ func (tc *TodoCreate) sqlSave(ctx context.Context) (*Todo, error) {
 		}
 		return nil, err
 	}
-	if _spec.ID.Value != nil {
-		if id, ok := _spec.ID.Value.(*uuid.UUID); ok {
-			_node.ID = *id
-		} else if err := _node.ID.Scan(_spec.ID.Value); err != nil {
-			return nil, err
-		}
-	}
+	id := _spec.ID.Value.(int64)
+	_node.ID = int(id)
 	tc.mutation.id = &_node.ID
 	tc.mutation.done = true
 	return _node, nil
@@ -170,12 +179,8 @@ func (tc *TodoCreate) sqlSave(ctx context.Context) (*Todo, error) {
 func (tc *TodoCreate) createSpec() (*Todo, *sqlgraph.CreateSpec) {
 	var (
 		_node = &Todo{config: tc.config}
-		_spec = sqlgraph.NewCreateSpec(todo.Table, sqlgraph.NewFieldSpec(todo.FieldID, field.TypeUUID))
+		_spec = sqlgraph.NewCreateSpec(todo.Table, sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt))
 	)
-	if id, ok := tc.mutation.ID(); ok {
-		_node.ID = id
-		_spec.ID.Value = &id
-	}
 	if value, ok := tc.mutation.Title(); ok {
 		_spec.SetField(todo.FieldTitle, field.TypeString, value)
 		_node.Title = value
@@ -183,6 +188,10 @@ func (tc *TodoCreate) createSpec() (*Todo, *sqlgraph.CreateSpec) {
 	if value, ok := tc.mutation.Description(); ok {
 		_spec.SetField(todo.FieldDescription, field.TypeString, value)
 		_node.Description = value
+	}
+	if value, ok := tc.mutation.Completed(); ok {
+		_spec.SetField(todo.FieldCompleted, field.TypeBool, value)
+		_node.Completed = value
 	}
 	if value, ok := tc.mutation.CreatedAt(); ok {
 		_spec.SetField(todo.FieldCreatedAt, field.TypeTime, value)
@@ -200,7 +209,7 @@ func (tc *TodoCreate) createSpec() (*Todo, *sqlgraph.CreateSpec) {
 			Columns: []string{todo.AuthorColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -257,6 +266,10 @@ func (tcb *TodoCreateBulk) Save(ctx context.Context) ([]*Todo, error) {
 					return nil, err
 				}
 				mutation.id = &nodes[i].ID
+				if specs[i].ID.Value != nil {
+					id := specs[i].ID.Value.(int64)
+					nodes[i].ID = int(id)
+				}
 				mutation.done = true
 				return nodes[i], nil
 			})

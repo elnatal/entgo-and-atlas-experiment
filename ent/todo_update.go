@@ -14,7 +14,6 @@ import (
 	"github.com/elnatal/go-experiment/ent/predicate"
 	"github.com/elnatal/go-experiment/ent/todo"
 	"github.com/elnatal/go-experiment/ent/user"
-	"github.com/google/uuid"
 )
 
 // TodoUpdate is the builder for updating Todo entities.
@@ -58,6 +57,20 @@ func (tu *TodoUpdate) SetNillableDescription(s *string) *TodoUpdate {
 	return tu
 }
 
+// SetCompleted sets the "completed" field.
+func (tu *TodoUpdate) SetCompleted(b bool) *TodoUpdate {
+	tu.mutation.SetCompleted(b)
+	return tu
+}
+
+// SetNillableCompleted sets the "completed" field if the given value is not nil.
+func (tu *TodoUpdate) SetNillableCompleted(b *bool) *TodoUpdate {
+	if b != nil {
+		tu.SetCompleted(*b)
+	}
+	return tu
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (tu *TodoUpdate) SetCreatedAt(t time.Time) *TodoUpdate {
 	tu.mutation.SetCreatedAt(t)
@@ -87,7 +100,7 @@ func (tu *TodoUpdate) SetNillableUpdatedAt(t *time.Time) *TodoUpdate {
 }
 
 // SetAuthorID sets the "author" edge to the User entity by ID.
-func (tu *TodoUpdate) SetAuthorID(id uuid.UUID) *TodoUpdate {
+func (tu *TodoUpdate) SetAuthorID(id int) *TodoUpdate {
 	tu.mutation.SetAuthorID(id)
 	return tu
 }
@@ -147,7 +160,7 @@ func (tu *TodoUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if err := tu.check(); err != nil {
 		return n, err
 	}
-	_spec := sqlgraph.NewUpdateSpec(todo.Table, todo.Columns, sqlgraph.NewFieldSpec(todo.FieldID, field.TypeUUID))
+	_spec := sqlgraph.NewUpdateSpec(todo.Table, todo.Columns, sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt))
 	if ps := tu.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
@@ -160,6 +173,9 @@ func (tu *TodoUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := tu.mutation.Description(); ok {
 		_spec.SetField(todo.FieldDescription, field.TypeString, value)
+	}
+	if value, ok := tu.mutation.Completed(); ok {
+		_spec.SetField(todo.FieldCompleted, field.TypeBool, value)
 	}
 	if value, ok := tu.mutation.CreatedAt(); ok {
 		_spec.SetField(todo.FieldCreatedAt, field.TypeTime, value)
@@ -175,7 +191,7 @@ func (tu *TodoUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Columns: []string{todo.AuthorColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
@@ -188,7 +204,7 @@ func (tu *TodoUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Columns: []string{todo.AuthorColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -244,6 +260,20 @@ func (tuo *TodoUpdateOne) SetNillableDescription(s *string) *TodoUpdateOne {
 	return tuo
 }
 
+// SetCompleted sets the "completed" field.
+func (tuo *TodoUpdateOne) SetCompleted(b bool) *TodoUpdateOne {
+	tuo.mutation.SetCompleted(b)
+	return tuo
+}
+
+// SetNillableCompleted sets the "completed" field if the given value is not nil.
+func (tuo *TodoUpdateOne) SetNillableCompleted(b *bool) *TodoUpdateOne {
+	if b != nil {
+		tuo.SetCompleted(*b)
+	}
+	return tuo
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (tuo *TodoUpdateOne) SetCreatedAt(t time.Time) *TodoUpdateOne {
 	tuo.mutation.SetCreatedAt(t)
@@ -273,7 +303,7 @@ func (tuo *TodoUpdateOne) SetNillableUpdatedAt(t *time.Time) *TodoUpdateOne {
 }
 
 // SetAuthorID sets the "author" edge to the User entity by ID.
-func (tuo *TodoUpdateOne) SetAuthorID(id uuid.UUID) *TodoUpdateOne {
+func (tuo *TodoUpdateOne) SetAuthorID(id int) *TodoUpdateOne {
 	tuo.mutation.SetAuthorID(id)
 	return tuo
 }
@@ -346,7 +376,7 @@ func (tuo *TodoUpdateOne) sqlSave(ctx context.Context) (_node *Todo, err error) 
 	if err := tuo.check(); err != nil {
 		return _node, err
 	}
-	_spec := sqlgraph.NewUpdateSpec(todo.Table, todo.Columns, sqlgraph.NewFieldSpec(todo.FieldID, field.TypeUUID))
+	_spec := sqlgraph.NewUpdateSpec(todo.Table, todo.Columns, sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt))
 	id, ok := tuo.mutation.ID()
 	if !ok {
 		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "Todo.id" for update`)}
@@ -377,6 +407,9 @@ func (tuo *TodoUpdateOne) sqlSave(ctx context.Context) (_node *Todo, err error) 
 	if value, ok := tuo.mutation.Description(); ok {
 		_spec.SetField(todo.FieldDescription, field.TypeString, value)
 	}
+	if value, ok := tuo.mutation.Completed(); ok {
+		_spec.SetField(todo.FieldCompleted, field.TypeBool, value)
+	}
 	if value, ok := tuo.mutation.CreatedAt(); ok {
 		_spec.SetField(todo.FieldCreatedAt, field.TypeTime, value)
 	}
@@ -391,7 +424,7 @@ func (tuo *TodoUpdateOne) sqlSave(ctx context.Context) (_node *Todo, err error) 
 			Columns: []string{todo.AuthorColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
@@ -404,7 +437,7 @@ func (tuo *TodoUpdateOne) sqlSave(ctx context.Context) (_node *Todo, err error) 
 			Columns: []string{todo.AuthorColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

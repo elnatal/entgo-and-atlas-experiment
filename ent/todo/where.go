@@ -8,51 +8,50 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/elnatal/go-experiment/ent/predicate"
-	"github.com/google/uuid"
 )
 
 // ID filters vertices based on their ID field.
-func ID(id uuid.UUID) predicate.Todo {
+func ID(id int) predicate.Todo {
 	return predicate.Todo(sql.FieldEQ(FieldID, id))
 }
 
 // IDEQ applies the EQ predicate on the ID field.
-func IDEQ(id uuid.UUID) predicate.Todo {
+func IDEQ(id int) predicate.Todo {
 	return predicate.Todo(sql.FieldEQ(FieldID, id))
 }
 
 // IDNEQ applies the NEQ predicate on the ID field.
-func IDNEQ(id uuid.UUID) predicate.Todo {
+func IDNEQ(id int) predicate.Todo {
 	return predicate.Todo(sql.FieldNEQ(FieldID, id))
 }
 
 // IDIn applies the In predicate on the ID field.
-func IDIn(ids ...uuid.UUID) predicate.Todo {
+func IDIn(ids ...int) predicate.Todo {
 	return predicate.Todo(sql.FieldIn(FieldID, ids...))
 }
 
 // IDNotIn applies the NotIn predicate on the ID field.
-func IDNotIn(ids ...uuid.UUID) predicate.Todo {
+func IDNotIn(ids ...int) predicate.Todo {
 	return predicate.Todo(sql.FieldNotIn(FieldID, ids...))
 }
 
 // IDGT applies the GT predicate on the ID field.
-func IDGT(id uuid.UUID) predicate.Todo {
+func IDGT(id int) predicate.Todo {
 	return predicate.Todo(sql.FieldGT(FieldID, id))
 }
 
 // IDGTE applies the GTE predicate on the ID field.
-func IDGTE(id uuid.UUID) predicate.Todo {
+func IDGTE(id int) predicate.Todo {
 	return predicate.Todo(sql.FieldGTE(FieldID, id))
 }
 
 // IDLT applies the LT predicate on the ID field.
-func IDLT(id uuid.UUID) predicate.Todo {
+func IDLT(id int) predicate.Todo {
 	return predicate.Todo(sql.FieldLT(FieldID, id))
 }
 
 // IDLTE applies the LTE predicate on the ID field.
-func IDLTE(id uuid.UUID) predicate.Todo {
+func IDLTE(id int) predicate.Todo {
 	return predicate.Todo(sql.FieldLTE(FieldID, id))
 }
 
@@ -64,6 +63,11 @@ func Title(v string) predicate.Todo {
 // Description applies equality check predicate on the "description" field. It's identical to DescriptionEQ.
 func Description(v string) predicate.Todo {
 	return predicate.Todo(sql.FieldEQ(FieldDescription, v))
+}
+
+// Completed applies equality check predicate on the "completed" field. It's identical to CompletedEQ.
+func Completed(v bool) predicate.Todo {
+	return predicate.Todo(sql.FieldEQ(FieldCompleted, v))
 }
 
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
@@ -204,6 +208,16 @@ func DescriptionEqualFold(v string) predicate.Todo {
 // DescriptionContainsFold applies the ContainsFold predicate on the "description" field.
 func DescriptionContainsFold(v string) predicate.Todo {
 	return predicate.Todo(sql.FieldContainsFold(FieldDescription, v))
+}
+
+// CompletedEQ applies the EQ predicate on the "completed" field.
+func CompletedEQ(v bool) predicate.Todo {
+	return predicate.Todo(sql.FieldEQ(FieldCompleted, v))
+}
+
+// CompletedNEQ applies the NEQ predicate on the "completed" field.
+func CompletedNEQ(v bool) predicate.Todo {
+	return predicate.Todo(sql.FieldNEQ(FieldCompleted, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

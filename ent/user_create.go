@@ -12,7 +12,6 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/elnatal/go-experiment/ent/todo"
 	"github.com/elnatal/go-experiment/ent/user"
-	"github.com/google/uuid"
 )
 
 // UserCreate is the builder for creating a User entity.
@@ -54,21 +53,15 @@ func (uc *UserCreate) SetNillableCreatedAt(t *time.Time) *UserCreate {
 	return uc
 }
 
-// SetID sets the "id" field.
-func (uc *UserCreate) SetID(u uuid.UUID) *UserCreate {
-	uc.mutation.SetID(u)
-	return uc
-}
-
 // AddTodoIDs adds the "todos" edge to the Todo entity by IDs.
-func (uc *UserCreate) AddTodoIDs(ids ...uuid.UUID) *UserCreate {
+func (uc *UserCreate) AddTodoIDs(ids ...int) *UserCreate {
 	uc.mutation.AddTodoIDs(ids...)
 	return uc
 }
 
 // AddTodos adds the "todos" edges to the Todo entity.
 func (uc *UserCreate) AddTodos(t ...*Todo) *UserCreate {
-	ids := make([]uuid.UUID, len(t))
+	ids := make([]int, len(t))
 	for i := range t {
 		ids[i] = t[i].ID
 	}
@@ -159,13 +152,8 @@ func (uc *UserCreate) sqlSave(ctx context.Context) (*User, error) {
 		}
 		return nil, err
 	}
-	if _spec.ID.Value != nil {
-		if id, ok := _spec.ID.Value.(*uuid.UUID); ok {
-			_node.ID = *id
-		} else if err := _node.ID.Scan(_spec.ID.Value); err != nil {
-			return nil, err
-		}
-	}
+	id := _spec.ID.Value.(int64)
+	_node.ID = int(id)
 	uc.mutation.id = &_node.ID
 	uc.mutation.done = true
 	return _node, nil
@@ -174,12 +162,8 @@ func (uc *UserCreate) sqlSave(ctx context.Context) (*User, error) {
 func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	var (
 		_node = &User{config: uc.config}
-		_spec = sqlgraph.NewCreateSpec(user.Table, sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID))
+		_spec = sqlgraph.NewCreateSpec(user.Table, sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt))
 	)
-	if id, ok := uc.mutation.ID(); ok {
-		_node.ID = id
-		_spec.ID.Value = &id
-	}
 	if value, ok := uc.mutation.Name(); ok {
 		_spec.SetField(user.FieldName, field.TypeString, value)
 		_node.Name = value
@@ -204,7 +188,7 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			Columns: []string{user.TodosColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(todo.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(todo.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -260,6 +244,10 @@ func (ucb *UserCreateBulk) Save(ctx context.Context) ([]*User, error) {
 					return nil, err
 				}
 				mutation.id = &nodes[i].ID
+				if specs[i].ID.Value != nil {
+					id := specs[i].ID.Value.(int64)
+					nodes[i].ID = int(id)
+				}
 				mutation.done = true
 				return nodes[i], nil
 			})

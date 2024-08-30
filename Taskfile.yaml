@@ -1,0 +1,103 @@
+# https://taskfile.dev
+
+version: "3"
+
+vars:
+  DSN: "{{.DB_CONNECTION}}://{{.DB_USER}}:{{.DB_PASSWORD}}@{{.DB_HOST}}:{{.DB_PORT}}/{{.DB_NAME}}?sslmode=disable"
+
+dotenv:
+  - ".env"
+
+tasks:
+  default:
+    desc: "Gettings started"
+    cmds:
+      - task: install
+
+  install:
+    desc: "Install dependencies"
+    cmds:
+      - go mod download
+      - go install github.com/go-task/task/v3/cmd/task@latest
+      - go install github.com/cosmtrek/air@latest
+      - go install github.com/swaggo/swag/cmd/swag@latest
+      - go install go.uber.org/mock/mockgen@latest
+
+  db:docs:
+    desc: "Generate database documentation from DBML file"
+    cmd: dbdocs build {{.DBML_FILE}}
+    requires:
+      vars:
+        - DBML_FILE
+
+  db:create:
+    desc: "Create database if not exists"
+    cmd: docker exec -it go-pos_postgres sh -c "psql -U {{.DB_USER}} -c 'SELECT 1' -d {{.DB_NAME}} &>/dev/null || psql -U {{.DB_USER}} -c 'CREATE DATABASE {{.DB_NAME}};'"
+    requires:
+      vars:
+        - DB_USER
+        - DB_NAME
+
+  db:drop:
+    desc: "Drop database"
+    cmd: docker exec -it go-pos_postgres sh -c "psql -U {{.DB_USER}} -c 'DROP DATABASE {{.DB_NAME}};'"
+    requires:
+      vars:
+        - DB_USER
+        - DB_NAME
+
+  db:cli:
+    desc: "Connect to database using command line interface"
+    cmd: docker exec -it go-pos_postgres sh -c "psql -U {{.DB_USER}} -d {{.DB_NAME}}"
+    requires:
+      vars:
+        - DB_USER
+        - DB_NAME
+
+  migrate:up:
+    desc: "Run database migrations"
+    cmd: migrate -path ./internal/adapter/storage/postgres/migrations -database {{.DSN}} -verbose up {{.CLI_ARGS}}
+    requires:
+      vars:
+        - DSN
+
+  migrate:down:
+    desc: "Rollback database migrations"
+    cmd: migrate -path ./internal/adapter/storage/postgres/migrations -database {{.DSN}} -verbose down {{.CLI_ARGS}}
+    requires:
+      vars:
+        - DSN
+
+  dev:
+    desc: "Start development server"
+    cmd: air
+
+  lint:
+    desc: "Run linter"
+    cmd: golangci-lint run ./...
+
+  build:
+    desc: "Build binary"
+    cmd: go build -o ./bin/{{.APP_NAME}} ./cmd/http/main.go
+    requires:
+      vars:
+        - APP_NAME
+
+  start:
+    desc: "Start binary"
+    cmd: ./bin/{{.APP_NAME}}
+    requires:
+      vars:
+        - APP_NAME
+
+  swag:
+    desc: "Generate swagger documentation"
+    cmds:
+      - swag fmt
+      - swag init -g ./cmd/http/main.go -o ./docs --parseInternal true
+
+  test:
+    desc: "Run tests"
+    cmds:
+      - go test -v ./... -race -cover -timeout 30s -count 1 -coverprofile=coverage.out
+      - go tool cover -html=coverage.out -o coverage.html

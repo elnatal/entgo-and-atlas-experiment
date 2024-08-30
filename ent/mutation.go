@@ -14,7 +14,6 @@ import (
 	"github.com/elnatal/go-experiment/ent/predicate"
 	"github.com/elnatal/go-experiment/ent/todo"
 	"github.com/elnatal/go-experiment/ent/user"
-	"github.com/google/uuid"
 )
 
 const (
@@ -35,13 +34,14 @@ type TodoMutation struct {
 	config
 	op            Op
 	typ           string
-	id            *uuid.UUID
+	id            *int
 	title         *string
 	description   *string
+	completed     *bool
 	created_at    *time.Time
 	updated_at    *time.Time
 	clearedFields map[string]struct{}
-	author        *uuid.UUID
+	author        *int
 	clearedauthor bool
 	done          bool
 	oldValue      func(context.Context) (*Todo, error)
@@ -68,7 +68,7 @@ func newTodoMutation(c config, op Op, opts ...todoOption) *TodoMutation {
 }
 
 // withTodoID sets the ID field of the mutation.
-func withTodoID(id uuid.UUID) todoOption {
+func withTodoID(id int) todoOption {
 	return func(m *TodoMutation) {
 		var (
 			err   error
@@ -118,15 +118,9 @@ func (m TodoMutation) Tx() (*Tx, error) {
 	return tx, nil
 }
 
-// SetID sets the value of the id field. Note that this
-// operation is only accepted on creation of Todo entities.
-func (m *TodoMutation) SetID(id uuid.UUID) {
-	m.id = &id
-}
-
 // ID returns the ID value in the mutation. Note that the ID is only available
 // if it was provided to the builder or after it was returned from the database.
-func (m *TodoMutation) ID() (id uuid.UUID, exists bool) {
+func (m *TodoMutation) ID() (id int, exists bool) {
 	if m.id == nil {
 		return
 	}
@@ -137,12 +131,12 @@ func (m *TodoMutation) ID() (id uuid.UUID, exists bool) {
 // That means, if the mutation is applied within a transaction with an isolation level such
 // as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
 // or updated by the mutation.
-func (m *TodoMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+func (m *TodoMutation) IDs(ctx context.Context) ([]int, error) {
 	switch {
 	case m.op.Is(OpUpdateOne | OpDeleteOne):
 		id, exists := m.ID()
 		if exists {
-			return []uuid.UUID{id}, nil
+			return []int{id}, nil
 		}
 		fallthrough
 	case m.op.Is(OpUpdate | OpDelete):
@@ -224,6 +218,42 @@ func (m *TodoMutation) ResetDescription() {
 	m.description = nil
 }
 
+// SetCompleted sets the "completed" field.
+func (m *TodoMutation) SetCompleted(b bool) {
+	m.completed = &b
+}
+
+// Completed returns the value of the "completed" field in the mutation.
+func (m *TodoMutation) Completed() (r bool, exists bool) {
+	v := m.completed
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCompleted returns the old "completed" field's value of the Todo entity.
+// If the Todo object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TodoMutation) OldCompleted(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCompleted is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCompleted requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCompleted: %w", err)
+	}
+	return oldValue.Completed, nil
+}
+
+// ResetCompleted resets all changes to the "completed" field.
+func (m *TodoMutation) ResetCompleted() {
+	m.completed = nil
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *TodoMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -297,7 +327,7 @@ func (m *TodoMutation) ResetUpdatedAt() {
 }
 
 // SetAuthorID sets the "author" edge to the User entity by id.
-func (m *TodoMutation) SetAuthorID(id uuid.UUID) {
+func (m *TodoMutation) SetAuthorID(id int) {
 	m.author = &id
 }
 
@@ -312,7 +342,7 @@ func (m *TodoMutation) AuthorCleared() bool {
 }
 
 // AuthorID returns the "author" edge ID in the mutation.
-func (m *TodoMutation) AuthorID() (id uuid.UUID, exists bool) {
+func (m *TodoMutation) AuthorID() (id int, exists bool) {
 	if m.author != nil {
 		return *m.author, true
 	}
@@ -322,7 +352,7 @@ func (m *TodoMutation) AuthorID() (id uuid.UUID, exists bool) {
 // AuthorIDs returns the "author" edge IDs in the mutation.
 // Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
 // AuthorID instead. It exists only for internal usage by the builders.
-func (m *TodoMutation) AuthorIDs() (ids []uuid.UUID) {
+func (m *TodoMutation) AuthorIDs() (ids []int) {
 	if id := m.author; id != nil {
 		ids = append(ids, *id)
 	}
@@ -369,12 +399,15 @@ func (m *TodoMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *TodoMutation) Fields() []string {
-	fields := make([]string, 0, 4)
+	fields := make([]string, 0, 5)
 	if m.title != nil {
 		fields = append(fields, todo.FieldTitle)
 	}
 	if m.description != nil {
 		fields = append(fields, todo.FieldDescription)
+	}
+	if m.completed != nil {
+		fields = append(fields, todo.FieldCompleted)
 	}
 	if m.created_at != nil {
 		fields = append(fields, todo.FieldCreatedAt)
@@ -394,6 +427,8 @@ func (m *TodoMutation) Field(name string) (ent.Value, bool) {
 		return m.Title()
 	case todo.FieldDescription:
 		return m.Description()
+	case todo.FieldCompleted:
+		return m.Completed()
 	case todo.FieldCreatedAt:
 		return m.CreatedAt()
 	case todo.FieldUpdatedAt:
@@ -411,6 +446,8 @@ func (m *TodoMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldTitle(ctx)
 	case todo.FieldDescription:
 		return m.OldDescription(ctx)
+	case todo.FieldCompleted:
+		return m.OldCompleted(ctx)
 	case todo.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	case todo.FieldUpdatedAt:
@@ -437,6 +474,13 @@ func (m *TodoMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetDescription(v)
+		return nil
+	case todo.FieldCompleted:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCompleted(v)
 		return nil
 	case todo.FieldCreatedAt:
 		v, ok := value.(time.Time)
@@ -506,6 +550,9 @@ func (m *TodoMutation) ResetField(name string) error {
 		return nil
 	case todo.FieldDescription:
 		m.ResetDescription()
+		return nil
+	case todo.FieldCompleted:
+		m.ResetCompleted()
 		return nil
 	case todo.FieldCreatedAt:
 		m.ResetCreatedAt()
@@ -596,14 +643,14 @@ type UserMutation struct {
 	config
 	op            Op
 	typ           string
-	id            *uuid.UUID
+	id            *int
 	name          *string
 	email         *string
 	password      *string
 	created_at    *time.Time
 	clearedFields map[string]struct{}
-	todos         map[uuid.UUID]struct{}
-	removedtodos  map[uuid.UUID]struct{}
+	todos         map[int]struct{}
+	removedtodos  map[int]struct{}
 	clearedtodos  bool
 	done          bool
 	oldValue      func(context.Context) (*User, error)
@@ -630,7 +677,7 @@ func newUserMutation(c config, op Op, opts ...userOption) *UserMutation {
 }
 
 // withUserID sets the ID field of the mutation.
-func withUserID(id uuid.UUID) userOption {
+func withUserID(id int) userOption {
 	return func(m *UserMutation) {
 		var (
 			err   error
@@ -680,15 +727,9 @@ func (m UserMutation) Tx() (*Tx, error) {
 	return tx, nil
 }
 
-// SetID sets the value of the id field. Note that this
-// operation is only accepted on creation of User entities.
-func (m *UserMutation) SetID(id uuid.UUID) {
-	m.id = &id
-}
-
 // ID returns the ID value in the mutation. Note that the ID is only available
 // if it was provided to the builder or after it was returned from the database.
-func (m *UserMutation) ID() (id uuid.UUID, exists bool) {
+func (m *UserMutation) ID() (id int, exists bool) {
 	if m.id == nil {
 		return
 	}
@@ -699,12 +740,12 @@ func (m *UserMutation) ID() (id uuid.UUID, exists bool) {
 // That means, if the mutation is applied within a transaction with an isolation level such
 // as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
 // or updated by the mutation.
-func (m *UserMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+func (m *UserMutation) IDs(ctx context.Context) ([]int, error) {
 	switch {
 	case m.op.Is(OpUpdateOne | OpDeleteOne):
 		id, exists := m.ID()
 		if exists {
-			return []uuid.UUID{id}, nil
+			return []int{id}, nil
 		}
 		fallthrough
 	case m.op.Is(OpUpdate | OpDelete):
@@ -859,9 +900,9 @@ func (m *UserMutation) ResetCreatedAt() {
 }
 
 // AddTodoIDs adds the "todos" edge to the Todo entity by ids.
-func (m *UserMutation) AddTodoIDs(ids ...uuid.UUID) {
+func (m *UserMutation) AddTodoIDs(ids ...int) {
 	if m.todos == nil {
-		m.todos = make(map[uuid.UUID]struct{})
+		m.todos = make(map[int]struct{})
 	}
 	for i := range ids {
 		m.todos[ids[i]] = struct{}{}
@@ -879,9 +920,9 @@ func (m *UserMutation) TodosCleared() bool {
 }
 
 // RemoveTodoIDs removes the "todos" edge to the Todo entity by IDs.
-func (m *UserMutation) RemoveTodoIDs(ids ...uuid.UUID) {
+func (m *UserMutation) RemoveTodoIDs(ids ...int) {
 	if m.removedtodos == nil {
-		m.removedtodos = make(map[uuid.UUID]struct{})
+		m.removedtodos = make(map[int]struct{})
 	}
 	for i := range ids {
 		delete(m.todos, ids[i])
@@ -890,7 +931,7 @@ func (m *UserMutation) RemoveTodoIDs(ids ...uuid.UUID) {
 }
 
 // RemovedTodos returns the removed IDs of the "todos" edge to the Todo entity.
-func (m *UserMutation) RemovedTodosIDs() (ids []uuid.UUID) {
+func (m *UserMutation) RemovedTodosIDs() (ids []int) {
 	for id := range m.removedtodos {
 		ids = append(ids, id)
 	}
@@ -898,7 +939,7 @@ func (m *UserMutation) RemovedTodosIDs() (ids []uuid.UUID) {
 }
 
 // TodosIDs returns the "todos" edge IDs in the mutation.
-func (m *UserMutation) TodosIDs() (ids []uuid.UUID) {
+func (m *UserMutation) TodosIDs() (ids []int) {
 	for id := range m.todos {
 		ids = append(ids, id)
 	}
